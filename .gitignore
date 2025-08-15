@@ -1,24 +1,42 @@
-# MQTT and certificate files (not relevant to current project)
-ActivatorTest-Policy
-ActivatorTest.cert.pem
-ActivatorTest.private.key
-ActivatorTest.public.key
-AmazonRootCA1.pem
-connect_device_package.zip
-certs/
-activator_simulator.py
-start.sh
+# ============================================================================
+# NVR Edge Processing System - Git Ignore Rules
+# ============================================================================
 
-# Python virtual environment
+# Environment and Secrets
+# Sensitive configuration files
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+.env.test
+# Note: .env.example should be tracked to provide template
+*.pem
+*.key
+*.cert
+*.crt
+.aws/
+credentials
+config
+config.local.*
+settings.local.*
+
+# Python Environment
+# Virtual environments and Python artifacts
 .venv/
+venv/
+venv_*/
+env/
+.env_venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
 pip-log.txt
 pip-delete-this-directory.txt
+
+# Python Testing
 .tox/
 .coverage
 .coverage.*
@@ -26,8 +44,114 @@ pip-delete-this-directory.txt
 nosetests.xml
 coverage.xml
 *.cover
-*.log
-.git
-.mypy_cache
 .pytest_cache
 .hypothesis
+.mypy_cache
+
+# AWS and Cloud
+# AWS deployment and credential files
+*.zip
+*.tar.gz
+lambda_*.zip
+function_*.zip
+deployment_*.zip
+build/
+dist/
+.aws-sam/
+
+# Video and Media Files
+# Large media files that shouldn't be in version control
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.flv
+*.wmv
+*.webm
+*.m4v
+*.3gp
+VideoStorage/
+nvr_storage/
+footage/
+recordings/
+test_videos/
+test_footage/
+
+# Build and Deployment Artifacts
+# Generated files and deployment packages
+*.so
+*.dylib
+*.dll
+*.exe
+*.egg-info/
+.eggs/
+wheels/
+_build/
+site/
+.sphinx/
+docs/_build/
+generated_*
+test_output/
+
+# Development Tools
+# IDE and editor specific files
+.vscode/settings.json
+.idea/
+*.sublime-*
+.atom/
+*.swp
+*.swo
+*~
+.kiro/
+
+# Logs and Temporary Files
+# Runtime logs and temporary data
+*.log
+*.out
+*.err
+logs/
+log/
+temp/
+tmp/
+cache/
+.cache/
+__temp__/
+WIP/
+work-in-progress/
+draft/
+scratch/
+
+# System Files and Debugging
+# OS-specific files and debugging artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+.Spotlight-V100
+.Trashes
+*.pid
+*.seed
+*.pid.lock
+runtime/
+run/
+var/
+*.db
+*.sqlite
+*.sqlite3
+database/
+*.pcap
+*.cap
+network_logs/
+
+# Backup Files
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+
+# Archive Files
+*.rar
+*.7z
+
+# Git (keep this)
+.git

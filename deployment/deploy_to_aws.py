@@ -277,7 +277,7 @@ class AWSLambdaDeployer:
         os.remove('lambda_indexer.zip')
         os.remove('lambda_normalizer.zip')
         
-        print("\n✅ Deployment completed successfully!")
+        print("\nDeployment completed successfully!")
         print("\nNext steps:")
         print("1. Test the functions in AWS Lambda Console")
         print("2. Upload a test video to S3 to verify the pipeline")
@@ -297,9 +297,9 @@ def main():
     # Check AWS credentials
     try:
         boto3.client('sts').get_caller_identity()
-        print("✅ AWS credentials configured")
+        print("AWS credentials configured")
     except Exception as e:
-        print(f"❌ AWS credentials not configured: {e}")
+        print(f"AWS credentials not configured: {e}")
         print("Run 'aws configure' first")
         sys.exit(1)
     

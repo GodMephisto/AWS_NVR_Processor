@@ -5,33 +5,40 @@
 ### **Prerequisites:**
 - **UV installed** (Python package manager)
 - **AWS account** with credentials configured
-- **Amcrest NVR** (arriving Thursday)
+- **Amcrest NVR** with cameras
 
 ---
 
-## **Step 1: Local Development Setup (Today)**
+## **Step 1: Local Development Setup**
 
-### **Install UV (if not installed):**
+### **Setup Virtual Environment:**
 ```bash
-# Windows (PowerShell)
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+# Install uv if not already installed
+# Visit: https://docs.astral.sh/uv/getting-started/installation/
 
-# Or via pip
-pip install uv
+# Create and activate virtual environment
+uv venv
+.venv\Scripts\activate
+
+# Install dependencies
+uv pip install -r requirements.txt
 ```
 
 ### **Test Your System:**
 ```bash
 # Test AWS connectivity
-uv run python testing/test_aws_setup.py
+python tests/test_aws_setup.py
 
 # Test NVR system (will warn about missing cameras - that's OK)
-uv run python nvr-system/test_main.py
+python nvr-system/test_main.py
+
+# Or use uv run (automatically uses venv)
+uv run python tests/test_aws_setup.py
 ```
 
 ---
 
-## **Step 2: Deploy AWS Lambda Functions (Today)**
+## **Step 2: Deploy AWS Lambda Functions**
 
 ### **Option A: Manual Deployment (Recommended)**
 1. **AWS Console** → Lambda → Create Function
@@ -54,7 +61,7 @@ uv run python deployment/deploy_to_aws.py
 
 ---
 
-## **Step 3: Hardware Setup (Thursday)**
+## **Step 3: Hardware Setup**
 
 ### **Physical Setup:**
 1. **Connect Amcrest camera** to NVR
@@ -64,14 +71,19 @@ uv run python deployment/deploy_to_aws.py
 ### **Software Installation:**
 ```bash
 # Copy entire project to NVR
+# Setup virtual environment
+uv venv
+.venv\Scripts\activate
+uv pip install -r requirements.txt
+
 # Run automated setup
-uv run python deployment/setup_basic_nvr.py
+python deployment/setup_basic_nvr.py
 
 # Test camera connections
-uv run python nvr-system/test_main.py --test-cameras
+python nvr-system/test_main.py --test-cameras
 
 # Start production system
-uv run python nvr-system/test_main.py
+python nvr-system/test_main.py
 ```
 
 ---
@@ -121,8 +133,8 @@ uv run python nvr-system/test_main.py
 
 ### **AWS Connectivity Issues:**
 ```bash
-# Check credentials
-uv run python testing/test_aws_setup.py
+# Check credentials (ensure venv is activated)
+python tests/test_aws_setup.py
 
 # Verify bucket exists
 aws s3 ls s3://amcrest-nvr-storage-335507813628
@@ -130,8 +142,8 @@ aws s3 ls s3://amcrest-nvr-storage-335507813628
 
 ### **Camera Connection Issues:**
 ```bash
-# Test specific camera
-uv run python nvr-system/test_main.py --test-cameras
+# Test specific camera (ensure venv is activated)
+python nvr-system/test_main.py --test-cameras
 ```
 
 ### **Lambda Function Issues:**
@@ -150,4 +162,4 @@ uv run python nvr-system/test_main.py --test-cameras
 - **NVR Software**: ✅ Complete and tested
 - **Documentation**: ✅ Comprehensive guides
 
-**Just waiting for Thursday's hardware delivery!** 🎉
+**Ready for production deployment!** 🎉

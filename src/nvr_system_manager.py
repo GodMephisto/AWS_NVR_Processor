@@ -31,7 +31,7 @@ class NVRSystemManager:
         
     def start_vod_server(self, host='127.0.0.1', port=8080):
         """Start the VOD streaming server"""
-        logger.info("🚀 Starting VOD streaming server...")
+        logger.info("Starting VOD streaming server...")
         
         try:
             process = subprocess.Popen([
@@ -42,281 +42,193 @@ class NVRSystemManager:
             ])
             
             self.processes['vod_server'] = process
-            logger.info(f"✅ VOD server started on {host}:{port}")
+            logger.info(f"VOD server started on {host}:{port}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to start VOD server: {e}")
+            logger.error(f"Failed to start VOD server: {e}")
             return False
     
-    def start_cloud_sync(self, source_path=None):
-        """Start cloud synchronization service"""
-        logger.info("☁️  Starting cloud sync service...")
-        
-        try:
-            cmd = [
-                sys.executable,
-                str(self.base_path / "nvr-system" / "services" / "cloud_sync.py")
-            ]
-            
-            if source_path:
-                cmd.extend(["--source", source_path])
-            
-            process = subprocess.Popen(cmd)
-            self.processes['cloud_sync'] = process
-            logger.info("✅ Cloud sync service started")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to start cloud sync: {e}")
-            return False
-    
-    def start_metadata_processor(self):
-        """Start metadata extraction service"""
-        logger.info("📊 Starting metadata processor...")
-        
-        try:
-            process = subprocess.Popen([
-                sys.executable,
-                str(self.base_path / "nvr-system" / "services" / "metadata_extractor.py")
-            ])
-            
-            self.processes['metadata_processor'] = process
-            logger.info("✅ Metadata processor started")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to start metadata processor: {e}")
-            return False
-    
-    def check_aws_connectivity(self):
-        """Check AWS connectivity and configuration"""
-        logger.info("🔗 Checking AWS connectivity...")
-        
-        try:
-            result = subprocess.run([
-                sys.executable,
-                str(self.base_path / "tests" / "test_aws_setup.py"),
-                "--quick"
-            ], capture_output=True, text=True, timeout=30)
-            
-            if result.returncode == 0:
-                logger.info("✅ AWS connectivity verified")
+    def stop_vod_server(self):
+        """Stop the VOD streaming server"""
+        if 'vod_server' in self.processes:
+            try:
+                self.processes['vod_server'].terminate()
+                self.processes['vod_server'].wait(timeout=10)
+                del self.processes['vod_server']
+                logger.info("VOD server stopped")
                 return True
-            else:
-                logger.warning(f"⚠️  AWS connectivity issues: {result.stderr}")
+            except Exception as e:
+                logger.error(f"Error stopping VOD server: {e}")
                 return False
-                
-        except Exception as e:
-            logger.error(f"❌ AWS connectivity check failed: {e}")
-            return False
+        return True
     
-    def deploy_lambda_functions(self):
-        """Deploy Lambda functions to AWS"""
-        logger.info("🚀 Deploying Lambda functions...")
+    def start_all_services(self, host='127.0.0.1', vod_port=8080):
+        """Start all NVR services"""
+        logger.info("Starting all NVR services...")
         
-        try:
-            result = subprocess.run([
-                sys.executable,
-                str(self.base_path / "deployment" / "deploy_to_aws.py")
-            ], capture_output=True, text=True, timeout=300)
+        success = True
+        
+        # Start VOD server
+        if not self.start_vod_server(host, vod_port):
+            success = False
+        
+        if success:
+            logger.info("All services started successfully")
+            self.running = True
+        else:
+            logger.error("Some services failed to start")
             
-            if result.returncode == 0:
-                logger.info("✅ Lambda functions deployed successfully")
-                return True
-            else:
-                logger.error(f"❌ Lambda deployment failed: {result.stderr}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"❌ Lambda deployment error: {e}")
-            return False
+        return success
     
-    def get_system_status(self):
-        """Get status of all system components"""
+    def stop_all_services(self):
+        """Stop all NVR services"""
+        logger.info("Stopping all NVR services...")
+        
+        self.running = False
+        
+        # Stop VOD server
+        self.stop_vod_server()
+        
+        # Stop any other processes
+        for name, process in list(self.processes.items()):
+            try:
+                process.terminate()
+                process.wait(timeout=5)
+                logger.info(f"Stopped {name}")
+            except Exception as e:
+                logger.error(f"Error stopping {name}: {e}")
+                try:
+                    process.kill()
+                except:
+                    pass
+        
+        self.processes.clear()
+        logger.info("All services stopped")
+    
+    def get_status(self):
+        """Get status of all services"""
         status = {
-            'timestamp': datetime.now().isoformat(),
-            'components': {}
+            'running': self.running,
+            'services': {}
         }
         
         for name, process in self.processes.items():
-            if process.poll() is None:
-                status['components'][name] = 'running'
-            else:
-                status['components'][name] = 'stopped'
+            try:
+                # Check if process is still running
+                if process.poll() is None:
+                    status['services'][name] = 'running'
+                else:
+                    status['services'][name] = 'stopped'
+            except Exception:
+                status['services'][name] = 'unknown'
         
         return status
     
-    def stop_all_services(self):
-        """Stop all running services"""
-        logger.info("🛑 Stopping all services...")
+    def run_interactive(self):
+        """Run in interactive mode"""
+        print("NVR System Manager - Interactive Mode")
+        print("=" * 40)
         
-        for name, process in self.processes.items():
-            try:
-                if process.poll() is None:
-                    logger.info(f"   Stopping {name}...")
-                    process.terminate()
-                    process.wait(timeout=10)
-                    logger.info(f"   ✅ {name} stopped")
-            except subprocess.TimeoutExpired:
-                logger.warning(f"   ⚠️  Force killing {name}...")
-                process.kill()
-            except Exception as e:
-                logger.error(f"   ❌ Error stopping {name}: {e}")
-        
-        self.processes.clear()
-        self.running = False
-        logger.info("✅ All services stopped")
-    
-    def start_full_system(self, nvr_path=None, vod_port=8080):
-        """Start the complete NVR system"""
-        logger.info("🚀 Starting Complete NVR System")
-        logger.info("=" * 50)
-        
-        self.running = True
-        
-        # 1. Check AWS connectivity
-        if not self.check_aws_connectivity():
-            logger.warning("⚠️  AWS connectivity issues - some features may not work")
-        
-        # 2. Start VOD server
-        if not self.start_vod_server(port=vod_port):
-            logger.error("❌ Failed to start VOD server")
-            return False
-        
-        # 3. Start cloud sync (if NVR path provided)
-        if nvr_path:
-            if not self.start_cloud_sync(nvr_path):
-                logger.warning("⚠️  Cloud sync failed to start")
-        
-        # 4. Start metadata processor
-        if not self.start_metadata_processor():
-            logger.warning("⚠️  Metadata processor failed to start")
-        
-        logger.info("=" * 50)
-        logger.info("🎉 NVR System Started Successfully!")
-        logger.info(f"📡 VOD API: http://localhost:{vod_port}")
-        logger.info(f"🏥 Health Check: http://localhost:{vod_port}/api/v1/health")
-        logger.info(f"📹 Video Search: http://localhost:{vod_port}/api/v1/videos/search")
-        logger.info("=" * 50)
-        
-        return True
-    
-    def run_interactive_mode(self):
-        """Run in interactive mode with menu"""
-        while self.running:
-            print("\n" + "=" * 50)
-            print("🎛️  NVR System Manager")
-            print("=" * 50)
-            print("1. Start VOD Server")
-            print("2. Start Cloud Sync")
-            print("3. Check System Status")
-            print("4. Deploy Lambda Functions")
-            print("5. Test AWS Connectivity")
-            print("6. Start Full System")
-            print("7. Stop All Services")
-            print("8. Exit")
-            print("=" * 50)
+        while True:
+            print("\nOptions:")
+            print("1. Start VOD server")
+            print("2. Stop VOD server")
+            print("3. Start all services")
+            print("4. Stop all services")
+            print("5. Show status")
+            print("6. Exit")
             
             try:
-                choice = input("Select option (1-8): ").strip()
+                choice = input("\nEnter choice (1-6): ").strip()
                 
                 if choice == '1':
-                    port = input("VOD Server port (default 8080): ").strip() or "8080"
-                    self.start_vod_server(port=int(port))
+                    host = input("Host (127.0.0.1): ").strip() or '127.0.0.1'
+                    port = input("Port (8080): ").strip() or '8080'
+                    self.start_vod_server(host, int(port))
                 
                 elif choice == '2':
-                    nvr_path = input("NVR video path (optional): ").strip() or None
-                    self.start_cloud_sync(nvr_path)
+                    self.stop_vod_server()
                 
                 elif choice == '3':
-                    status = self.get_system_status()
-                    print(f"\n📊 System Status ({status['timestamp']}):")
-                    for component, state in status['components'].items():
-                        emoji = "✅" if state == "running" else "❌"
-                        print(f"   {emoji} {component}: {state}")
+                    host = input("Host (127.0.0.1): ").strip() or '127.0.0.1'
+                    port = input("VOD Port (8080): ").strip() or '8080'
+                    self.start_all_services(host, int(port))
                 
                 elif choice == '4':
-                    self.deploy_lambda_functions()
+                    self.stop_all_services()
                 
                 elif choice == '5':
-                    self.check_aws_connectivity()
+                    status = self.get_status()
+                    print(f"\nSystem Status:")
+                    print(f"Running: {status['running']}")
+                    for service, state in status['services'].items():
+                        print(f"{service}: {state}")
                 
                 elif choice == '6':
-                    nvr_path = input("NVR video path (optional): ").strip() or None
-                    port = input("VOD Server port (default 8080): ").strip() or "8080"
-                    self.start_full_system(nvr_path, int(port))
-                
-                elif choice == '7':
+                    print("Stopping all services...")
                     self.stop_all_services()
-                
-                elif choice == '8':
-                    self.stop_all_services()
+                    print("Goodbye!")
                     break
                 
                 else:
-                    print("❌ Invalid option")
+                    print("Invalid choice. Please enter 1-6.")
                     
             except KeyboardInterrupt:
-                print("\n🛑 Interrupted by user")
+                print("\nStopping all services...")
                 self.stop_all_services()
                 break
             except Exception as e:
-                logger.error(f"❌ Error: {e}")
-
-def signal_handler(signum, frame):
-    """Handle shutdown signals"""
-    logger.info("🛑 Shutdown signal received")
-    if 'manager' in globals():
-        manager.stop_all_services()
-    sys.exit(0)
+                print(f"Error: {e}")
 
 def main():
-    """Main entry point"""
+    """Main function"""
     import argparse
     
     parser = argparse.ArgumentParser(description='NVR System Manager')
-    parser.add_argument('--start-all', action='store_true', help='Start all services')
-    parser.add_argument('--nvr-path', help='Path to NVR video storage')
-    parser.add_argument('--vod-port', type=int, default=8080, help='VOD server port')
     parser.add_argument('--interactive', action='store_true', help='Run in interactive mode')
+    parser.add_argument('--start-all', action='store_true', help='Start all services')
+    parser.add_argument('--host', default='127.0.0.1', help='Host to bind to')
+    parser.add_argument('--vod-port', type=int, default=8080, help='VOD server port')
     
     args = parser.parse_args()
     
+    manager = NVRSystemManager()
+    
     # Setup signal handlers
+    def signal_handler(signum, frame):
+        logger.info("Received shutdown signal")
+        manager.stop_all_services()
+        sys.exit(0)
+    
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    global manager
-    manager = NVRSystemManager()
-    
     try:
-        if args.start_all:
-            success = manager.start_full_system(args.nvr_path, args.vod_port)
-            if success:
-                # Keep running until interrupted
-                while manager.running:
-                    time.sleep(1)
+        if args.interactive:
+            manager.run_interactive()
+        elif args.start_all:
+            if manager.start_all_services(args.host, args.vod_port):
+                logger.info("All services started. Press Ctrl+C to stop.")
+                try:
+                    while manager.running:
+                        time.sleep(1)
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    manager.stop_all_services()
             else:
+                logger.error("Failed to start services")
                 sys.exit(1)
-        
-        elif args.interactive:
-            manager.run_interactive_mode()
-        
         else:
-            # Default: start VOD server only
-            if manager.start_vod_server(port=args.vod_port):
-                print(f"✅ VOD server running on port {args.vod_port}")
-                print("Press Ctrl+C to stop")
-                while manager.running:
-                    time.sleep(1)
-            else:
-                sys.exit(1)
+            print("NVR System Manager")
+            print("Use --interactive for interactive mode or --start-all to start all services")
+            print("Use --help for more options")
     
-    except KeyboardInterrupt:
-        logger.info("🛑 Interrupted by user")
-    finally:
+    except Exception as e:
+        logger.error(f"System manager error: {e}")
         manager.stop_all_services()
+        sys.exit(1)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

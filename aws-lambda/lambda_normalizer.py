@@ -1,137 +1,137 @@
+#!/usr/bin/env python3
+"""
+AWS Lambda Video Normalizer
+Organizes video files and triggers indexing
+"""
+
 import json
-import os
-import logging
-import urllib.parse
-from datetime import datetime, timezone
 import boto3
-from botocore.exceptions import ClientError
+import os
+from urllib.parse import unquote_plus
 
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-logger = logging.getLogger()
-logger.setLevel(LOG_LEVEL)
-logger.info("normalizer build: 2025-08-13 amcrest-optimized")
+# Initialize AWS clients
+s3_client = boto3.client('s3')
+lambda_client = boto3.client('lambda')
 
-s3 = boto3.client("s3")
-lambda_client = boto3.client("lambda")
-
-BUCKET = os.environ["BUCKET"]
-INDEXER_FUNCTION = os.environ["INDEXER_FUNCTION"]  # function name, not ARN
-
-# Prefer metadata; fallback to 'unknown'
-ALIASES = {
-    "site_id": ["site_id", "siteid", "site-id"],
-    "camera_id": ["camera_id", "cameraid", "camera-id"],
-}
-
-def _pick(meta: dict, logical_key: str):
-    for k in ALIASES.get(logical_key, []):
-        v = meta.get(k)
-        if v:
-            return v
-    return None
-
-def _utc_datestring(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).strftime("%Y/%m/%d")
-
-def lambda_handler(event, _ctx):
-    try:
-        logger.info("normalize_event: %s", json.dumps(event)[:1200])
-    except Exception:
-        pass
+def lambda_handler(event, context):
+    """Lambda handler for video normalization"""
     
-    for rec in event.get("Records", []):
-        if rec.get("eventSource") != "aws:s3":
-            continue
+    try:
+        # Get environment variables
+        bucket = os.environ.get('BUCKET')
+        indexer_function = os.environ.get('INDEXER_FUNCTION', 'nvr-video-indexer')
         
-        bkt = rec["s3"]["bucket"]["name"]
-        key = urllib.parse.unquote(rec["s3"]["object"]["key"])
+        # Process each S3 record
+        results = []
         
-        # Already normalized -> just invoke indexer
-        if key.startswith("cctv/"):
-            _invoke_indexer_passthru(rec, bkt, key)
-            continue
-        
-        # Head source object
-        try:
-            head = s3.head_object(Bucket=bkt, Key=key)
-        except ClientError as e:
-            logger.warning("head_object failed for s3://%s/%s: %s", bkt, key, e)
-            continue
-        
-        meta = {k.lower(): v for k, v in (head.get("Metadata") or {}).items()}
-        site = _pick(meta, "site_id") or "unknown"
-        cam = _pick(meta, "camera_id") or "unknown"
-        
-        # Prefer eventTime; fallback to LastModified; else now()
-        when = None
-        ev_time = rec.get("eventTime")
-        if ev_time:
+        for record in event.get('Records', []):
             try:
-                when = datetime.fromisoformat(ev_time.replace("Z", "+00:00"))
-            except Exception:
-                when = None
+                # Extract S3 information
+                source_bucket = record['s3']['bucket']['name']
+                source_key = unquote_plus(record['s3']['object']['key'])
+                
+                print(f"Processing file: {source_key}")
+                
+                # Normalize the file path if needed
+                normalized_key = normalize_video_path(source_key)
+                
+                # If path changed, copy to normalized location
+                if normalized_key != source_key:
+                    copy_source = {'Bucket': source_bucket, 'Key': source_key}
+                    s3_client.copy_object(
+                        CopySource=copy_source,
+                        Bucket=source_bucket,
+                        Key=normalized_key
+                    )
+                    
+                    # Delete original if it was moved
+                    s3_client.delete_object(Bucket=source_bucket, Key=source_key)
+                    
+                    print(f"Normalized: {source_key} -> {normalized_key}")
+                    final_key = normalized_key
+                else:
+                    final_key = source_key
+                
+                # Trigger indexer function
+                indexer_payload = {
+                    'Records': [{
+                        's3': {
+                            'bucket': {'name': source_bucket},
+                            'object': {
+                                'key': final_key,
+                                'size': record['s3']['object']['size']
+                            }
+                        }
+                    }]
+                }
+                
+                lambda_client.invoke(
+                    FunctionName=indexer_function,
+                    InvocationType='Event',  # Async
+                    Payload=json.dumps(indexer_payload)
+                )
+                
+                results.append({
+                    'original_key': source_key,
+                    'final_key': final_key,
+                    'status': 'success',
+                    'normalized': normalized_key != source_key
+                })
+                
+            except Exception as e:
+                print(f"Error processing record: {e}")
+                results.append({
+                    'key': record.get('s3', {}).get('object', {}).get('key', 'unknown'),
+                    'status': 'error',
+                    'error': str(e)
+                })
         
-        if when is None:
-            lm = head.get("LastModified")
-            when = lm if isinstance(lm, datetime) else datetime.now(timezone.utc)
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': f'Processed {len(results)} files',
+                'results': results
+            })
+        }
         
-        date_prefix = _utc_datestring(when)  # YYYY/MM/DD
-        filename = key.split("/")[-1]
-        norm_key = f"cctv/{site}/{cam}/{date_prefix}/{filename}"
-        
-        if norm_key == key:
-            _invoke_indexer_passthru(rec, bkt, key)
-            continue
-        
-        # Idempotent copy: if destination already exists, SKIP copy AND SKIP invoking indexer.
-        try:
-            s3.head_object(Bucket=BUCKET, Key=norm_key)
-            logger.info("normalized exists (skip copy & index): %s", norm_key)
-            continue
-        except ClientError as e:
-            code = (e.response.get("Error") or {}).get("Code")
-            if code not in ("404", "NoSuchKey"):
-                logger.error("head_object failed for %s: %s", norm_key, e)
-                continue
-        
-        # Destination not found -> copy
-        try:
-            s3.copy_object(
-                Bucket=BUCKET,
-                Key=norm_key,
-                CopySource={"Bucket": bkt, "Key": key},
-                MetadataDirective="COPY",
-            )
-            logger.info("normalized: %s -> %s", key, norm_key)
-        except ClientError as e:
-            logger.error("copy_object failed %s -> %s: %s", key, norm_key, e)
-            continue
-        
-        # S3 will emit ObjectCreated:Copy for norm_key; on that event (key startswith 'cctv/'),
-        # this function will invoke the indexer.
-    
-    return {"statusCode": 200, "body": json.dumps({"ok": True})}
+    except Exception as e:
+        print(f"Lambda error: {e}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({
+                'error': str(e)
+            })
+        }
 
-def _invoke_indexer_passthru(orig_rec, bucket, key):
-    """Invoke the existing indexer with a minimal S3-like event."""
-    payload = {
-        "Records": [{
-            "eventSource": "aws:s3",
-            "eventName": orig_rec.get("eventName", "ObjectCreated:Put"),
-            "eventTime": orig_rec.get("eventTime"),
-            "s3": {
-                "bucket": {"name": bucket},
-                "object": {"key": key}
-            }
-        }]
-    }
+def normalize_video_path(s3_key):
+    """Normalize video file path to standard format"""
     
+    # Target format: videos/site_id/camera_id/YYYYMMDD/filename
+    
+    # If already in correct format, return as-is
+    if s3_key.startswith('videos/') and s3_key.count('/') >= 4:
+        return s3_key
+    
+    # Extract filename
+    filename = s3_key.split('/')[-1]
+    
+    # Try to parse Amcrest filename format: YYYYMMDD_HHMMSS_camera_id_sequence.dav
     try:
-        lambda_client.invoke(
-            FunctionName=INDEXER_FUNCTION,
-            InvocationType="Event",
-            Payload=json.dumps(payload).encode("utf-8"),
-        )
-        logger.info("invoked indexer for s3://%s/%s", bucket, key)
-    except ClientError as e:
-        logger.error("invoke indexer failed: %s", e)
+        if '_' in filename and '.' in filename:
+            parts = filename.split('_')
+            if len(parts) >= 3:
+                date_part = parts[0]  # YYYYMMDD
+                camera_id = parts[2] if len(parts) > 2 else 'unknown'
+                
+                # Default site_id
+                site_id = 'default_site'
+                
+                # Construct normalized path
+                normalized_path = f"videos/{site_id}/{camera_id}/{date_part}/{filename}"
+                return normalized_path
+    
+    except Exception as e:
+        print(f"Error normalizing path {s3_key}: {e}")
+    
+    # Fallback: put in default location
+    return f"videos/unknown/unknown/unknown/{filename}"

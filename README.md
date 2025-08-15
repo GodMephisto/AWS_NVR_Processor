@@ -13,7 +13,7 @@ A complete NVR (Network Video Recorder) system that provides:
 ## 🏗️ Project Structure
 
 ```
-nvr-system/
+AWS_NVR_Processor/
 ├── src/                          # Production source code
 │   ├── nvr_vod_server.py        # Main VOD streaming API server
 │   └── nvr_system_manager.py    # System management interface
@@ -21,11 +21,15 @@ nvr-system/
 │   ├── services/                # Business logic services
 │   │   ├── cloud_sync.py       # AWS S3 synchronization
 │   │   ├── metadata_extractor.py # Video metadata processing
-│   │   └── vod_streaming.py    # Video streaming service
+│   │   ├── vod_streaming.py    # Video streaming service
+│   │   └── timelapse_processor.py # Timelapse creation
 │   ├── config/                 # Configuration management
 │   │   └── basic_config.py     # System configuration
-│   └── api/                    # API endpoints
-│       └── vod_api.py          # VOD REST API
+│   ├── api/                    # API endpoints
+│   │   └── vod_api.py          # VOD REST API
+│   ├── utils/                  # Utility functions
+│   └── web/                    # Web interface
+│       └── index.html          # Basic web UI
 ├── aws-lambda/                 # AWS Lambda functions
 │   ├── lambda_indexer.py       # Video indexing function
 │   └── lambda_normalizer.py    # File organization function
@@ -35,66 +39,136 @@ nvr-system/
 │   ├── test_vod_streaming.py   # VOD API tests
 │   ├── test_aws_setup.py       # AWS connectivity tests
 │   ├── test_complete_system.py # Integration tests
-│   └── create_test_videos.py   # Test data generator
+│   ├── test_production_readiness.py # Production validation
+│   ├── test_with_real_footage.py # Real footage tests
+│   ├── create_test_videos.py   # Test data generator
+│   ├── simple_aws_test.py      # Simple AWS test
+│   ├── simple_test.py          # Basic functionality test
+│   └── .env.test               # Test environment config
+├── testing/                    # Additional testing scripts
+│   ├── quick_api_test.py       # Quick API validation
+│   └── simple_vod_server.py    # Simple server for testing
 ├── deployment/                 # Deployment resources
-│   ├── raspberry_pi_setup.md   # Raspberry Pi guide
-│   ├── pi_installer.sh         # Automated Pi installer
 │   ├── deploy_to_aws.py        # AWS deployment script
+│   ├── setup_basic_nvr.py      # Automated NVR setup
+│   ├── pi_installer.sh         # Raspberry Pi installer
+│   ├── raspberry_pi_setup.md   # Raspberry Pi guide
 │   └── AWS_LAMBDA_DEPLOYMENT.md # Lambda deployment guide
-├── docs/                       # Documentation
-│   ├── NVR_CONNECTION_GUIDE.md # Hardware connection guide
+├── docs/                       # Documentation (organized)
+│   ├── COMPLETE_DEPLOYMENT_GUIDE.md # Complete setup guide
+│   ├── PROJECT_STRUCTURE.md    # Detailed project structure
+│   ├── SYSTEM_VALIDATION_REPORT.md # System validation results
 │   ├── QUICK_START_GUIDE.md    # Getting started guide
-│   └── MVP_READINESS_CHECKLIST.md # Production checklist
-└── .kiro/specs/               # Development specifications
-    ├── nvr-edge-processing/    # Main system spec
-    └── video-on-demand-timelapse/ # VOD feature spec
+│   ├── NVR_CONNECTION_GUIDE.md # Hardware connection guide
+│   ├── MVP_READINESS_CHECKLIST.md # Production checklist
+│   ├── AWS_MANUAL_SETUP.md     # AWS setup guide
+│   └── BASIC_NVR_README.md     # NVR operation guide
+├── temp/                       # Temporary files (excluded from git)
+├── test_videos/                # Generated test video files
+├── scripts/                    # Utility scripts (empty)
+└── Configuration Files
+    ├── .env                    # Environment variables (excluded from git)
+    ├── .env.example           # Environment template
+    ├── .gitignore             # Comprehensive git ignore rules
+    ├── .gitattributes         # Git file handling rules
+    ├── requirements.txt       # Python dependencies
+    ├── run_all_tests.py        # Main test runner
+    └── start_vod_api_8081.py   # Alternative server startup
 ```
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
-```bash
-# Install Python dependencies
-pip install flask flask-cors boto3 requests python-dotenv
+**Your system is already set up and validated!** See `SYSTEM_VALIDATION_REPORT.md` for test results.
 
-# Or use virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
-pip install flask flask-cors boto3 requests python-dotenv
+### 1. Setup Virtual Environment with uv
+
+**First time setup:**
+```bash
+# Install uv if not already installed
+# Visit: https://docs.astral.sh/uv/getting-started/installation/
+
+# Create virtual environment
+uv venv
+
+# Activate virtual environment (Windows)
+.venv\Scripts\activate
+
+# Install dependencies
+uv pip install -r requirements.txt
+```
+
+**Daily usage:**
+```bash
+# Activate virtual environment
+.venv\Scripts\activate
+
+# Your environment is now ready to use
+# All Python commands will use the virtual environment
+```
+
+**Alternative activation methods:**
+```bash
+# Using uv run (runs commands in venv automatically)
+uv run python src/nvr_vod_server.py
+
+# Using uv shell (activates venv in current shell)
+uv shell
 ```
 
 ### 2. Configure Environment
 ```bash
-# Copy environment template
-cp .env.example .env
+# Your .env file is already configured with:
+# - AWS region and S3 bucket
+# - DynamoDB table name
+# - Project settings
 
-# Edit with your settings
-nano .env
+# AWS credentials are handled by AWS CLI (already configured)
+# Verify AWS access:
+aws sts get-caller-identity
+
+# If you need to add more settings, use .env.example as reference:
+# - NVR connection details
+# - Camera RTSP URLs
+# - Additional configuration options
 ```
 
 ### 3. Test System Components
 ```bash
-# Test AWS connectivity
+# Test AWS connectivity (quick test)
 python tests/test_aws_setup.py --quick
 
-# Test NVR discovery
+# Test complete system integration
+python tests/test_complete_system.py
+
+# Run all tests with comprehensive report
+python run_all_tests.py
+
+# Test production readiness
+python tests/test_production_readiness.py
+
+# Quick API test
+python testing/quick_api_test.py
+
+# Test NVR discovery (when ready for cameras)
 python tools/nvr_connection_tester.py --auto-discover
-
-# Start VOD server
-python src/nvr_vod_server.py
-
-# Test VOD API (in another terminal)
-python tests/test_vod_streaming.py --quick
 ```
 
-### 4. Start Complete System
+### 4. Start System Services
 ```bash
-# Interactive mode
+# Start VOD server (main service)
+python src/nvr_vod_server.py
+
+# Or start with custom port
+python start_vod_api_8081.py
+
+# Start system manager (interactive mode)
 python src/nvr_system_manager.py --interactive
 
-# Or start all services
-python src/nvr_system_manager.py --start-all --nvr-path "\\192.168.1.100\VideoStorage"
+# Start all services
+python src/nvr_system_manager.py --start-all
+
+# Deploy Lambda functions to AWS
+python deployment/deploy_to_aws.py
 ```
 
 ## 🎛️ Usage Examples
@@ -153,26 +227,28 @@ python tests/create_test_videos.py
 ## 🔧 Configuration
 
 ### Environment Variables (.env)
+
+**⚠️ IMPORTANT: The .env file contains sensitive credentials and is excluded from version control.**
+
 ```bash
-# NVR Connection
-NVR_HOST=192.168.1.100
-NVR_STORAGE_PATH=\\192.168.1.100\VideoStorage
-NVR_USERNAME=admin
-NVR_PASSWORD=your_password
+# Copy the template and fill in your actual values
+cp .env.example .env
 
-# Camera Configuration
-CAMERA_amcrest_001_IP=192.168.1.101
-CAMERA_amcrest_001_RTSP=rtsp://admin:password@192.168.1.101:554/cam/realmonitor?channel=1&subtype=0
-CAMERA_amcrest_001_SITE_ID=home
-CAMERA_amcrest_001_ENABLED=true
+# Edit the .env file with your settings:
+# - AWS credentials and bucket names
+# - NVR connection details and passwords  
+# - Camera RTSP URLs and credentials
+# - Project-specific configuration
 
-# AWS Configuration
-AWS_REGION=us-east-1
-AWS_S3_BUCKET=your-nvr-bucket
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-CLOUDFRONT_DOMAIN=your-cloudfront.com
+# The .env.example file shows all required variables with placeholder values
+# Never commit the actual .env file - it's automatically ignored by git
 ```
+
+**Required Environment Variables:**
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` - AWS credentials
+- `S3_BUCKET` - Your S3 bucket name (must be globally unique)
+- `NVR_HOST` / `NVR_USERNAME` / `NVR_PASSWORD` - NVR connection
+- `CAMERA_*` variables - Camera configuration and RTSP URLs
 
 ## 🌐 API Endpoints
 
@@ -260,11 +336,15 @@ python tests/create_test_videos.py
 
 ## 📚 Documentation
 
+- **[Complete Deployment Guide](COMPLETE_DEPLOYMENT_GUIDE.md)** - A-Z setup guide
+- **[System Validation Report](SYSTEM_VALIDATION_REPORT.md)** - Current system status
+- **[Project Structure](PROJECT_STRUCTURE.md)** - Detailed file organization
 - **[Quick Start Guide](docs/QUICK_START_GUIDE.md)** - Get started in 15 minutes
 - **[NVR Connection Guide](docs/NVR_CONNECTION_GUIDE.md)** - Hardware setup
-- **[Raspberry Pi Setup](deployment/raspberry_pi_setup.md)** - Pi deployment
-- **[AWS Deployment](deployment/AWS_LAMBDA_DEPLOYMENT.md)** - Cloud setup
+- **[AWS Manual Setup](docs/AWS_MANUAL_SETUP.md)** - AWS resource creation
 - **[MVP Checklist](docs/MVP_READINESS_CHECKLIST.md)** - Production readiness
+- **[Raspberry Pi Setup](deployment/raspberry_pi_setup.md)** - Pi deployment
+- **[AWS Lambda Deployment](deployment/AWS_LAMBDA_DEPLOYMENT.md)** - Cloud functions
 
 ## 🏆 Features
 
@@ -286,11 +366,13 @@ python tests/create_test_videos.py
 
 ## 🔒 Security
 
+- **Environment Protection** - Sensitive credentials in .env (excluded from git)
 - **Signed URLs** - Temporary, secure video access
 - **IAM Roles** - Least-privilege AWS access
 - **Network Security** - Local network isolation
 - **Authentication** - Camera and NVR credentials
 - **Encryption** - HTTPS/TLS for all communications
+- **Git Security** - Comprehensive .gitignore prevents credential exposure
 
 ## 📊 Performance
 
