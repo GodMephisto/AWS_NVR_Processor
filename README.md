@@ -117,12 +117,14 @@ uv shell
 
 ### 2. Configure Environment
 ```bash
-# Your .env file is already configured with:
-# - AWS region and S3 bucket
-# - DynamoDB table name
-# - Project settings
+# Copy the environment template
+cp .env.example .env
 
-# AWS credentials are handled by AWS CLI (already configured)
+# Edit .env with your AWS credentials (see AWS Credentials section below)
+# - Add your AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+# - Set your S3_BUCKET name (must be globally unique)
+# - Configure NVR and camera settings when ready
+
 # Verify AWS access:
 aws sts get-caller-identity
 
@@ -250,6 +252,54 @@ cp .env.example .env
 - `NVR_HOST` / `NVR_USERNAME` / `NVR_PASSWORD` - NVR connection
 - `CAMERA_*` variables - Camera configuration and RTSP URLs
 
+### Getting AWS Credentials
+
+**Step 1: Access AWS Console**
+- Go to: **https://console.aws.amazon.com/**
+- Sign in to your AWS account (create one if needed)
+
+**Step 2: Create IAM User**
+1. **AWS Console** → **IAM** → **Users** → **Create User**
+2. **Username**: `nvr-system-user`
+3. **AWS credential type**: Select "Access key - Programmatic access"
+4. Click **Next: Permissions**
+
+**Step 3: Attach Required Policies**
+- Select **"Attach existing policies directly"**
+- Search and attach these **3 policies** (check the boxes):
+  - ✅ `AmazonS3FullAccess`
+  - ✅ `AmazonDynamoDBFullAccess` 
+  - ✅ `AWSLambdaFullAccess`
+- Click **Next: Tags** → **Next: Review** → **Create User**
+
+**Step 4: Get Your Credentials**
+1. **IMPORTANT**: Copy your credentials immediately (you won't see them again)
+2. **Access Key ID**: Copy this to your `.env` file
+3. **Secret Access Key**: Copy this to your `.env` file
+4. Click **Download .csv** (backup copy)
+
+**Step 5: Add to .env File**
+```bash
+# Add these lines to your .env file:
+AWS_ACCESS_KEY_ID=your_access_key_here
+AWS_SECRET_ACCESS_KEY=your_secret_access_key_here
+AWS_REGION=us-east-1
+```
+
+**Step 6: Verify Setup**
+```bash
+# Test AWS connectivity
+aws sts get-caller-identity
+
+# Expected output: Account ID, User ARN, User ID
+# If this works, your credentials are configured correctly
+```
+
+**⚠️ Security Notes:**
+- Never share or commit these credentials to git
+- The `.env` file is automatically excluded from version control
+- If credentials are compromised, delete the IAM user and create new ones
+
 ## 🌐 API Endpoints
 
 ### VOD Streaming API
@@ -367,12 +417,21 @@ python tests/create_test_videos.py
 ## 🔒 Security
 
 - **Environment Protection** - Sensitive credentials in .env (excluded from git)
+- **AWS IAM Best Practices** - Use dedicated IAM user with minimal required permissions
+- **Credential Management** - Never commit AWS keys to version control
 - **Signed URLs** - Temporary, secure video access
 - **IAM Roles** - Least-privilege AWS access
 - **Network Security** - Local network isolation
 - **Authentication** - Camera and NVR credentials
 - **Encryption** - HTTPS/TLS for all communications
 - **Git Security** - Comprehensive .gitignore prevents credential exposure
+
+### AWS Security Recommendations:
+- ✅ **Use IAM User**: Create dedicated user instead of root credentials
+- ✅ **Minimal Permissions**: Only grant required S3, DynamoDB, Lambda access
+- ✅ **Rotate Keys**: Regularly update access keys
+- ✅ **Monitor Usage**: Check AWS CloudTrail for unusual activity
+- ❌ **Never Commit**: AWS credentials should never be in git history
 
 ## 📊 Performance
 
