@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVR Video-on-Demand System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .search-panel {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .search-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .search-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .video-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .video-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .video-thumbnail {
+            width: 100%;
+            height: 200px;
+            background: #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 0.9rem;
+            position: relative;
+        }
+
+        .video-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-info {
+            padding: 1rem;
+        }
+
+        .video-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+
+        .video-meta {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+
+        .video-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .motion-indicator {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: #dc3545;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .timelapse-indicator {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            background: #28a745;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .video-player-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+        }
+
+        .video-player-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 800px;
+        }
+
+        .video-player {
+            width: 100%;
+            height: auto;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .search-form {
+                grid-template-columns: 1fr;
+            }
+
+            .video-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎥 NVR Video-on-Demand System</h1>
+    </div>
+
+    <div class="container">
+        <div class="search-panel">
+            <form class="search-form" id="searchForm">
+                <div class="form-group">
+                    <label for="cameraId">Camera ID</label>
+                    <select id="cameraId">
+                        <option value="">All Cameras</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="siteId">Site ID</label>
+                    <select id="siteId">
+                        <option value="">All Sites</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="startDate">Start Date</label>
+                    <input type="datetime-local" id="startDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="endDate">End Date</label>
+                    <input type="datetime-local" id="endDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="hasMotion">Motion Filter</label>
+                    <select id="hasMotion">
+                        <option value="">All Videos</option>
+                        <option value="true">Motion Detected</option>
+                        <option value="false">No Motion</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="limit">Limit</label>
+                    <select id="limit">
+                        <option value="50">50 videos</option>
+                        <option value="100" selected>100 videos</option>
+                        <option value="200">200 videos</option>
+                    </select>
+                </div>
+            </form>
+
+            <button type="submit" form="searchForm" class="search-btn">🔍 Search Videos</button>
+        </div>
+
+        <div id="errorContainer"></div>
+        <div id="loadingContainer" class="loading" style="display: none;">
+            Loading videos...
+        </div>
+
+        <div id="videoGrid" class="video-grid"></div>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div id="videoPlayerModal" class="video-player-modal">
+        <div class="video-player-content">
+            <button class="close-btn" onclick="closeVideoPlayer()">&times;</button>
+            <video id="videoPlayer" class="video-player" controls>
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        let currentVideos = [];
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCameras();
+            loadSites();
+            setupEventListeners();
+            searchVideos(); // Load initial videos
+        });
+
+        function setupEventListeners() {
+            document.getElementById('searchForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                searchVideos();
+            });
+
+            // Close modal when clicking outside
+            document.getElementById('videoPlayerModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeVideoPlayer();
+                }
+            });
+        }
+
+        async function loadCameras() {
+            try {
+                const response = await fetch(`${API_BASE}/cameras`);
+                const data = await response.json();
+                
+                const select = document.getElementById('cameraId');
+                data.cameras.forEach(camera => {
+                    const option = document.createElement('option');
+                    option.value = camera.camera_id;
+                    option.textContent = `${camera.camera_id} (${camera.site_id})`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load cameras:', error);
+            }
+        }
+
+        async function loadSites() {
+            try {
+                const response = await fetch(`${API_BASE}/sites`);
+                const data = await response.json();
+                
+                const select = document.getElementById('siteId');
+                data.sites.forEach(site => {
+                    const option = document.createElement('option');
+                    option.value = site.site_id;
+                    option.textContent = site.site_id;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load sites:', error);
+            }
+        }
+
+        async function searchVideos() {
+            const loadingContainer = document.getElementById('loadingContainer');
+            const errorContainer = document.getElementById('errorContainer');
+            const videoGrid = document.getElementById('videoGrid');
+
+            // Show loading
+            loadingContainer.style.display = 'block';
+            errorContainer.innerHTML = '';
+            videoGrid.innerHTML = '';
+
+            try {
+                // Build query parameters
+                const params = new URLSearchParams();
+                
+                const cameraId = document.getElementById('cameraId').value;
+                const siteId = document.getElementById('siteId').value;
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                const hasMotion = document.getElementById('hasMotion').value;
+                const limit = document.getElementById('limit').value;
+
+                if (cameraId) params.append('camera_id', cameraId);
+                if (siteId) params.append('site_id', siteId);
+                if (startDate) params.append('start_date', startDate);
+                if (endDate) params.append('end_date', endDate);
+                if (hasMotion) params.append('has_motion', hasMotion);
+                if (limit) params.append('limit', limit);
+
+                const response = await fetch(`${API_BASE}/videos/search?${params}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Search failed');
+                }
+
+                currentVideos = data.videos;
+                displayVideos(data.videos);
+
+            } catch (error) {
+                console.error('Search failed:', error);
+                errorContainer.innerHTML = `<div class="error">Search failed: ${error.message}</div>`;
+            } finally {
+                loadingContainer.style.display = 'none';
+            }
+        }
+
+        function displayVideos(videos) {
+            const videoGrid = document.getElementById('videoGrid');
+            
+            if (videos.length === 0) {
+                videoGrid.innerHTML = '<div class="loading">No videos found matching your criteria.</div>';
+                return;
+            }
+
+            videoGrid.innerHTML = videos.map(video => `
+                <div class="video-card">
+                    <div class="video-thumbnail">
+                        ${video.thumbnail_url ? 
+                            `<img src="${video.thumbnail_url}" alt="Video thumbnail" onerror="this.style.display='none'">` :
+                            'No thumbnail available'
+                        }
+                        ${video.motion_percentage > 0 ? '<div class="motion-indicator">Motion</div>' : ''}
+                        ${video.is_timelapse ? '<div class="timelapse-indicator">Timelapse</div>' : ''}
+                    </div>
+                    <div class="video-info">
+                        <div class="video-title">${video.camera_id} - ${formatDate(video.start_timestamp)}</div>
+                        <div class="video-meta">📍 Site: ${video.site_id}</div>
+                        <div class="video-meta">⏱️ Duration: ${formatDuration(video.duration_seconds)}</div>
+                        <div class="video-meta">📐 Resolution: ${video.resolution}</div>
+                        <div class="video-meta">🎬 FPS: ${video.fps}</div>
+                        ${video.motion_percentage > 0 ? 
+                            `<div class="video-meta">🏃 Motion: ${video.motion_percentage.toFixed(1)}%</div>` : ''
+                        }
+                        <div class="video-actions">
+                            <button class="btn btn-primary" onclick="playVideo('${video.s3_key}')">
+                                ▶️ Play
+                            </button>
+                            <button class="btn btn-secondary" onclick="downloadVideo('${video.s3_key}')">
+                                💾 Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function playVideo(s3Key) {
+            try {
+                const response = await fetch(`${API_BASE}/videos/${encodeURIComponent(s3Key)}/stream`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to get streaming URL');
+                }
+
+                const videoPlayer = document.getElementById('videoPlayer');
+                videoPlayer.src = data.url;
+                
+                document.getElementById('videoPlayerModal').style.display = 'block';
+                videoPlayer.play();
+
+            } catch (error) {
+                console.error('Failed to play video:', error);
+                alert(`Failed to play video: ${error.message}`);
+            }
+        }
+
+        async function downloadVideo(s3Key) {
+            try {
+                const response = await fetch(`${API_BASE}/videos/${encodeURIComponent(s3Key)}/stream`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to get download URL');
+                }
+
+                // Open download URL in new tab
+                window.open(data.url, '_blank');
+
+            } catch (error) {
+                console.error('Failed to download video:', error);
+                alert(`Failed to download video: ${error.message}`);
+            }
+        }
+
+        function closeVideoPlayer() {
+            const modal = document.getElementById('videoPlayerModal');
+            const player = document.getElementById('videoPlayer');
+            
+            player.pause();
+            player.src = '';
+            modal.style.display = 'none';
+        }
+
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeVideoPlayer();
+            }
+        });
+    </script>
+</body>
+</html>

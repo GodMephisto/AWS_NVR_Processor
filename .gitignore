@@ -1,0 +1,33 @@
+# MQTT and certificate files (not relevant to current project)
+ActivatorTest-Policy
+ActivatorTest.cert.pem
+ActivatorTest.private.key
+ActivatorTest.public.key
+AmazonRootCA1.pem
+connect_device_package.zip
+certs/
+activator_simulator.py
+start.sh
+
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
